@@ -186,8 +186,8 @@ func main() {
 		}
 
 		if err := exec.Command("cp", tmpPath, installPath).Run(); err != nil {
-			// Try with sudo
-			sudoCmd := exec.Command("sudo", "cp", tmpPath, installPath)
+			// Try with sudo + mv (mv works even if binary is running on Linux)
+			sudoCmd := exec.Command("sudo", "sh", "-c", "mv "+tmpPath+" "+installPath)
 			sudoCmd.Stdin = os.Stdin
 			sudoCmd.Stdout = os.Stdout
 			sudoCmd.Stderr = os.Stderr
