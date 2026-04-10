@@ -185,22 +185,18 @@ func main() {
 			os.Exit(1)
 		}
 
-		// On Linux, cp/mv fail with "text file busy" if the target is running.
-		// We use sudo to kill the old process before replacing it.
-	 installCmd := exec.Command("sudo", "install", "-Dm755", tmpPath, installPath)
-		installCmd.Stdin = os.Stdin
-		installCmd.Stdout = os.Stdout
-		installCmd.Stderr = os.Stderr
-		if err := installCmd.Run(); err != nil {
-			// Fallback: kill running xalgorix processes, then install
-			killCmd := exec.Command("sudo", "killall", "-9", "xalgorix")
-			killCmd.Run()
-			time.Sleep(500 * time.Millisecond)
-			installCmd2 := exec.Command("sudo", "install", "-Dm755", tmpPath, installPath)
-			installCmd2.Stdin = os.Stdin
-			installCmd2.Stdout = os.Stdout
-			installCmd2.Stderr = os.Stderr
-			if err := installCmd2.Run(); err != nil {
+		// Try direct copy first
+		if err := exec.Command("sudo", "cp", tmpPath, installPath).Run(); err != nil {
+			// On Linux, ETXTBSY means binary is running. Use rename trick:
+			// Rename old binary to backup, copy new one, then remove backup.
+			backupPath := tmpPath + ".old"
+			rmCmd := exec.Command("sudo", "sh", "-c",
+				fmt.Sprintf("mv %s %s && cp %s %s && rm %s && chmod 755 %s",
+					installPath, backupPath, tmpPath, installPath, backupPath, installPath))
+			rmCmd.Stdin = os.Stdin
+			rmCmd.Stdout = os.Stdout
+			rmCmd.Stderr = os.Stderr
+			if err := rmCmd.Run(); err != nil {
 				fmt.Fprintf(os.Stderr, "❌ Failed to install: %v\n", err)
 				os.Remove(tmpPath)
 				os.Exit(1)
